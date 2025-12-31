@@ -145,7 +145,7 @@ const pollQuiz = async (courseId: string, quizId: string): Promise<void> => {
       const key = `${submission.quiz_id}-${submission.user_id}-${submission.attempt}`;
       
       try {
-        await processQuizSubmission(submission, quiz.title);
+        await processQuizSubmission(submission, quiz.title, courseId);
         processedSubmissions.add(key);
         console.log(`✅ Nueva submission procesada: Quiz ${quizId}, Usuario ${submission.user_id}, Intento ${submission.attempt}`);
       } catch (error) {

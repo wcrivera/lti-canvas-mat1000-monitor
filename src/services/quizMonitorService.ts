@@ -11,7 +11,8 @@ import { QuizSubmission } from '../types';
  */
 export const processQuizSubmission = async (
   submission: QuizSubmission,
-  quizTitle: string
+  quizTitle: string,
+  courseId: string
 ): Promise<void> => {
   try {
     // Verificar si ya existe
@@ -22,7 +23,7 @@ export const processQuizSubmission = async (
     });
 
     if (existing) {
-      console.log(`⚠️  Submission ya existe: ${submission.user_id} - Intento ${submission.attempt}`);
+      console.log(`⚠️  Submission ya existe: Usuario ${submission.user_id} - Intento ${submission.attempt}`);
       return;
     }
 
@@ -36,7 +37,13 @@ export const processQuizSubmission = async (
       percentageScore: ((submission.score || 0) / (submission.quiz_points_possible || 1)) * 100,
       submittedAt: new Date(submission.finished_at || submission.submitted_at || Date.now()),
       attempt: submission.attempt || 1,
-      workflowState: submission.workflow_state
+      workflowState: submission.workflow_state,
+      
+      // Campos adicionales requeridos por el modelo
+      submissionId: submission.submission_id?.toString() || submission.id.toString(),
+      courseId: courseId,
+      studentId: submission.user_id.toString(),
+      studentName: 'Canvas User' // Placeholder - se puede mejorar obteniendo del API
     });
 
     await quizResult.save();
