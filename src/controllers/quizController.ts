@@ -1,34 +1,59 @@
 // ============================================================================
-// CONTROLADOR QUIZ - QUIZ MONITOR
+// QUIZ CONTROLLER - QUIZ MONITOR
 // ============================================================================
 
 import { Request, Response } from 'express';
-import { getStudentResults, getStudentStats } from '../services/quizMonitorService';
+import { getStudentStats } from '../services/quizMonitorService';
+import QuizResult from '../models/QuizResult';
 import { ApiResponse } from '../types';
 
 /**
- * Obtener resultados de un estudiante
+ * Obtener estadísticas de estudiante
  */
-export const getResults = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const getStats = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { studentId } = req.params;
-    const { courseId } = req.query;
+    const { userId } = req.params;
 
-    if (!studentId) {
+    if (!userId) {
       res.status(400).json({
         ok: false,
-        error: 'studentId es requerido'
+        error: 'userId requerido'
       } as ApiResponse);
       return;
     }
 
-    const results = await getStudentResults(
-      studentId,
-      courseId as string | undefined
-    );
+    const stats = await getStudentStats(userId);
+
+    res.json({
+      ok: true,
+      data: stats
+    } as ApiResponse);
+
+  } catch (error) {
+    console.error('❌ Error obteniendo estadísticas:', error);
+    res.status(500).json({
+      ok: false,
+      error: 'Error obteniendo estadísticas'
+    } as ApiResponse);
+  }
+};
+
+/**
+ * Obtener resultados de quizzes de un estudiante
+ */
+export const getStudentResults = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      res.status(400).json({
+        ok: false,
+        error: 'userId requerido'
+      } as ApiResponse);
+      return;
+    }
+
+    const results = await QuizResult.find({ userId }).sort({ submittedAt: -1 });
 
     res.json({
       ok: true,
@@ -45,35 +70,32 @@ export const getResults = async (
 };
 
 /**
- * Obtener estadísticas de un estudiante
+ * Obtener último resultado de un estudiante
  */
-export const getStats = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const getLatestResult = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { studentId } = req.params;
+    const { userId } = req.params;
 
-    if (!studentId) {
+    if (!userId) {
       res.status(400).json({
         ok: false,
-        error: 'studentId es requerido'
+        error: 'userId requerido'
       } as ApiResponse);
       return;
     }
 
-    const stats = await getStudentStats(studentId);
+    const result = await QuizResult.findOne({ userId }).sort({ submittedAt: -1 });
 
     res.json({
       ok: true,
-      data: stats
+      data: result
     } as ApiResponse);
 
   } catch (error) {
-    console.error('❌ Error obteniendo estadísticas:', error);
+    console.error('❌ Error obteniendo último resultado:', error);
     res.status(500).json({
       ok: false,
-      error: 'Error obteniendo estadísticas'
+      error: 'Error obteniendo último resultado'
     } as ApiResponse);
   }
 };

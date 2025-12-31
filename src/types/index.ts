@@ -1,5 +1,5 @@
 // ============================================================================
-// TYPES - QUIZ MONITOR BACKEND
+// TYPES - QUIZ MONITOR BACKEND - COMPLETO
 // ============================================================================
 
 /**
@@ -45,6 +45,16 @@ export interface QuizResultData {
 }
 
 /**
+ * Roles LTI
+ */
+export type LTIRole = 'Instructor' | 'Learner' | 'TeachingAssistant' | 'ContentDeveloper' | 'Administrator';
+
+/**
+ * Estado de sesión LTI
+ */
+export type LTISessionStatus = 'active' | 'expired' | 'invalid';
+
+/**
  * Submission de Canvas API
  */
 export interface QuizSubmission {
@@ -69,6 +79,32 @@ export interface QuizSubmission {
   quiz_points_possible: number;
   validation_token: string | null;
   submitted_at: string | null;
+}
+
+/**
+ * Alias para compatibilidad
+ */
+export type CanvasQuizSubmission = QuizSubmission;
+
+/**
+ * Usuario de Canvas
+ */
+export interface CanvasUser {
+  id: number;
+  name: string;
+  created_at: string;
+  sortable_name: string;
+  short_name: string;
+  sis_user_id: string | null;
+  integration_id: string | null;
+  login_id: string;
+  avatar_url: string | null;
+  enrollments?: any[];
+  email: string;
+  locale: string | null;
+  effective_locale: string;
+  last_login: string | null;
+  time_zone: string;
 }
 
 /**
