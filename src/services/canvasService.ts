@@ -88,3 +88,7 @@ export class CanvasService {
 }
 
 export const canvasService = new CanvasService();
+
+export function startPolling() {
+  throw new Error('Function not implemented.');
+}
