@@ -1,56 +1,49 @@
 // ============================================================================
-// RUTAS PRINCIPALES - QUIZ MONITOR
+// ROUTES - QUIZ MONITOR BACKEND
 // ============================================================================
 
 import { Router } from 'express';
 import { handleLaunch, validateToken } from '../controllers/ltiController';
-import { getResults, getStats } from '../controllers/quizController';
+import { getStats, getStudentResults, getLatestResult } from '../controllers/quizController';
 import { validateLTILaunch } from '../middleware/ltiAuth';
 
 const router = Router();
 
 // ============================================================================
-// RUTAS LTI
+// LTI ROUTES
 // ============================================================================
 
 /**
- * POST /lti/launch
- * Endpoint para LTI launch desde Canvas
+ * LTI Launch - Punto de entrada desde Canvas
  */
 router.post('/lti/launch', validateLTILaunch, handleLaunch);
 
 /**
- * POST /lti/validate
  * Validar token de sesión
  */
 router.post('/lti/validate', validateToken);
 
 // ============================================================================
-// RUTAS API - QUIZ RESULTS
+// API ROUTES
 // ============================================================================
 
 /**
- * GET /api/results/:studentId
- * Obtener resultados de quizzes de un estudiante
+ * Obtener estadísticas de estudiante
  */
-router.get('/api/results/:studentId', getResults);
+router.get('/api/stats/:userId', getStats);
 
 /**
- * GET /api/stats/:studentId
- * Obtener estadísticas de un estudiante
+ * Obtener todos los resultados de un estudiante
  */
-router.get('/api/stats/:studentId', getStats);
+router.get('/api/results/:userId', getStudentResults);
+
+/**
+ * Obtener último resultado de un estudiante
+ */
+router.get('/api/results/:userId/latest', getLatestResult);
 
 // ============================================================================
-// RUTA DE HEALTH CHECK
+// EXPORT
 // ============================================================================
-
-router.get('/health', (_req, res) => {
-  res.json({
-    ok: true,
-    message: 'Quiz Monitor API funcionando',
-    timestamp: new Date().toISOString()
-  });
-});
 
 export default router;
