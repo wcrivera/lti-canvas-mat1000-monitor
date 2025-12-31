@@ -1,142 +1,158 @@
 // ============================================================================
-// TIPOS COMPARTIDOS - QUIZ MONITOR
+// TYPES - QUIZ MONITOR BACKEND
 // ============================================================================
 
-export type ID = string;
-
-// Estados
-export type AttemptStatus = 'iniciado' | 'en_progreso' | 'completado';
-export type LTISessionStatus = 'active' | 'expired';
-
-// LTI Roles
-export type LTIRole = 'Instructor' | 'Learner' | 'Administrator';
-
 /**
- * Respuesta API estándar
+ * Respuesta API genérica
  */
-export interface ApiResponse<T = unknown> {
+export interface ApiResponse<T = any> {
   ok: boolean;
   data?: T;
-  message?: string;
   error?: string;
+  message?: string;
 }
 
 /**
- * Resultado de Quiz de Canvas
+ * Datos de sesión del usuario
  */
-export interface QuizResult {
-  id: ID;
-  studentId: string;
-  studentName: string;
+export interface SessionData {
+  userId: string;
+  userName: string;
   courseId: string;
-  quizId: string;
+  role: 'Instructor' | 'Learner';
+}
+
+/**
+ * Estadísticas de estudiante
+ */
+export interface StatsData {
+  completados: number;
+  enProgreso: number;
+  totalQuizzes: number;
+  promedio: number;
+}
+
+/**
+ * Resultado de quiz
+ */
+export interface QuizResultData {
   quizTitle: string;
-  submissionId: string;
   score: number;
   possiblePoints: number;
   percentageScore: number;
-  timeSpent: number;
   submittedAt: Date;
-  detectedAt: Date;
-  questionsCorrect: number;
-  questionsIncorrect: number;
   attempt: number;
 }
 
 /**
- * Sesión LTI
+ * Submission de Canvas API
  */
-export interface LTISession {
-  id: ID;
-  userId: string;
-  userName: string;
-  courseId: string;
-  contextId: string;
-  resourceLinkId: string;
-  role: LTIRole;
-  sessionToken: string;
-  status: LTISessionStatus;
-  expiresAt: Date;
-  createdAt: Date;
-}
-
-/**
- * Datos de LTI Launch
- */
-export interface LTILaunchData {
-  user_id: string;
-  lis_person_name_full: string;
-  context_id: string;
-  resource_link_id: string;
-  roles: string;
-  custom_canvas_course_id: string;
-  custom_canvas_user_id: string;
-}
-
-/**
- * Canvas Quiz Submission (desde API)
- */
-export interface CanvasQuizSubmission {
+export interface QuizSubmission {
   id: number;
   quiz_id: number;
   user_id: number;
   submission_id: number;
-  score: number;
-  kept_score: number;
-  quiz_points_possible: number;
-  started_at: string;
-  finished_at: string;
-  workflow_state: 'untaken' | 'pending_review' | 'complete' | 'settings_only' | 'preview';
-  time_spent: number;
+  started_at: string | null;
+  finished_at: string | null;
+  end_at: string | null;
   attempt: number;
+  extra_attempts: number | null;
+  extra_time: number | null;
+  manually_unlocked: boolean | null;
+  time_spent: number | null;
+  score: number | null;
+  score_before_regrade: number | null;
+  kept_score: number | null;
+  fudge_points: number | null;
+  has_seen_results: boolean | null;
+  workflow_state: 'untaken' | 'pending_review' | 'complete' | 'settings_only' | 'preview';
+  quiz_points_possible: number;
+  validation_token: string | null;
+  submitted_at: string | null;
 }
 
 /**
- * Canvas Quiz (desde API)
+ * Quiz de Canvas API
  */
 export interface CanvasQuiz {
   id: number;
   title: string;
   description: string;
   quiz_type: string;
+  assignment_group_id: number | null;
   time_limit: number | null;
-  points_possible: number;
+  shuffle_answers: boolean;
+  hide_results: string | null;
+  show_correct_answers: boolean;
+  show_correct_answers_last_attempt: boolean;
+  show_correct_answers_at: string | null;
+  hide_correct_answers_at: string | null;
+  one_time_results: boolean;
+  scoring_policy: string;
+  allowed_attempts: number;
+  one_question_at_a_time: boolean;
   question_count: number;
+  points_possible: number;
+  cant_go_back: boolean;
+  access_code: string | null;
+  ip_filter: string | null;
+  due_at: string | null;
+  lock_at: string | null;
+  unlock_at: string | null;
   published: boolean;
+  unpublishable: boolean;
+  locked_for_user: boolean;
+  lock_info: any;
+  lock_explanation: string | null;
+  speedgrader_url: string;
+  quiz_extensions_url: string;
+  permissions: {
+    read_statistics: boolean;
+    manage: boolean;
+    read: boolean;
+    update: boolean;
+    create: boolean;
+    submit: boolean;
+    preview: boolean;
+    delete: boolean;
+    grade: boolean;
+    review_grades: boolean;
+    view_answer_audits: boolean;
+  };
+  all_dates: any[];
+  version_number: number;
+  question_types: string[];
+  anonymous_submissions: boolean;
 }
 
 /**
- * Canvas User (desde API)
+ * Datos LTI Launch
  */
-export interface CanvasUser {
-  id: number;
-  name: string;
-  sortable_name: string;
-  short_name: string;
+export interface LTILaunchData {
+  user_id: string;
+  lis_person_name_full: string;
+  lis_person_name_given: string;
+  lis_person_name_family: string;
+  lis_person_contact_email_primary: string;
+  roles: string;
+  context_id: string;
+  context_label: string;
+  context_title: string;
+  custom_canvas_course_id: string;
+  custom_canvas_user_id: string;
+  resource_link_id: string;
+  resource_link_title: string;
+  oauth_consumer_key: string;
+  oauth_signature_method: string;
+  oauth_timestamp: string;
+  oauth_nonce: string;
+  oauth_signature: string;
 }
 
 /**
- * Evento Socket.io
+ * Configuración de quiz monitoreado
  */
-export interface QuizResultEvent {
-  studentId: string;
+export interface MonitoredQuiz {
+  courseId: string;
   quizId: string;
-  quizTitle: string;
-  score: number;
-  possiblePoints: number;
-  percentageScore: number;
-  submittedAt: Date;
-  attempt: number;
-}
-
-/**
- * Estadísticas de estudiante
- */
-export interface StudentStats {
-  studentId: string;
-  studentName: string;
-  completados: number;
-  enProgreso: number;
-  promedio: number;
-  totalQuizzes: number;
 }

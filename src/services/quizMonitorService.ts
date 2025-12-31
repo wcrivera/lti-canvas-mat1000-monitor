@@ -1,145 +1,95 @@
 // ============================================================================
-// SERVICIO MONITOR DE QUIZZES - QUIZ MONITOR
+// QUIZ MONITOR SERVICE - CANVAS API POLLING
 // ============================================================================
 
 import QuizResult from '../models/QuizResult';
-import { canvasService } from './canvasService';
-import { emitQuizResult } from './socketService';
-import { CanvasQuizSubmission, QuizResultEvent } from '../types';
+import { emitToStudent } from './socketService';
+import { QuizSubmission } from '../types';
 
 /**
- * Procesar un submission de Canvas
+ * Procesar submission de Canvas y guardar en BD
  */
-const processSubmission = async (
-  submission: CanvasQuizSubmission,
-  courseId: string,
-  quizId: string
+export const processQuizSubmission = async (
+  submission: QuizSubmission,
+  quizTitle: string
 ): Promise<void> => {
   try {
-    // Verificar si ya fue procesado
-    const exists = await QuizResult.findOne({
-      submissionId: submission.id.toString()
+    // Verificar si ya existe
+    const existing = await QuizResult.findOne({
+      userId: submission.user_id.toString(),
+      quizId: submission.quiz_id.toString(),
+      attempt: submission.attempt
     });
 
-    if (exists) {
-      return; // Ya procesado
-    }
-
-    // Solo procesar si está completado
-    if (submission.workflow_state !== 'complete') {
+    if (existing) {
+      console.log(`⚠️  Submission ya existe: ${submission.user_id} - Intento ${submission.attempt}`);
       return;
     }
 
-    // Obtener detalles del usuario
-    const user = await canvasService.getUser(submission.user_id.toString());
-
-    // Obtener detalles del quiz
-    const quiz = await canvasService.getQuiz(courseId, quizId);
-
-    // Calcular porcentaje
-    const percentageScore = quiz.points_possible > 0
-      ? (submission.kept_score / quiz.points_possible) * 100
-      : 0;
-
-    // Guardar en MongoDB
+    // Crear nuevo resultado
     const quizResult = new QuizResult({
-      studentId: submission.user_id.toString(),
-      studentName: user.name,
-      courseId,
-      quizId,
-      quizTitle: quiz.title,
-      submissionId: submission.id.toString(),
-      score: submission.kept_score,
-      possiblePoints: quiz.points_possible,
-      percentageScore,
-      timeSpent: submission.time_spent || 0,
-      submittedAt: new Date(submission.finished_at),
+      userId: submission.user_id.toString(),
+      quizId: submission.quiz_id.toString(),
+      quizTitle,
+      score: submission.score || 0,
+      possiblePoints: submission.quiz_points_possible || 0,
+      percentageScore: ((submission.score || 0) / (submission.quiz_points_possible || 1)) * 100,
+      submittedAt: new Date(submission.finished_at || submission.submitted_at || Date.now()),
       attempt: submission.attempt || 1,
-      questionsCorrect: 0, // Canvas no siempre provee esto
-      questionsIncorrect: 0
+      workflowState: submission.workflow_state
     });
 
     await quizResult.save();
 
-    console.log(`✅ Quiz result guardado: ${user.name} - ${quiz.title}`);
+    console.log(`✅ Quiz result guardado: ${quizTitle} - Usuario ${submission.user_id}`);
 
-    // Emitir via WebSocket
-    const event: QuizResultEvent = {
-      studentId: submission.user_id.toString(),
-      quizId,
-      quizTitle: quiz.title,
-      score: submission.kept_score,
-      possiblePoints: quiz.points_possible,
-      percentageScore,
-      submittedAt: new Date(submission.finished_at),
-      attempt: submission.attempt || 1
-    };
+    // Emitir a Socket.io
+    emitToStudent(
+      submission.user_id.toString(),
+      'quiz-result-ready',
+      {
+        quizTitle,
+        score: submission.score || 0,
+        possiblePoints: submission.quiz_points_possible || 0,
+        percentageScore: quizResult.percentageScore,
+        submittedAt: quizResult.submittedAt,
+        attempt: submission.attempt || 1
+      }
+    );
 
-    emitQuizResult(submission.user_id.toString(), event);
+    console.log(`📤 Resultado emitido a estudiante ${submission.user_id}`);
 
   } catch (error) {
     console.error('❌ Error procesando submission:', error);
+    throw error;
   }
-};
-
-/**
- * Hacer polling de submissions de un quiz
- */
-export const pollQuizSubmissions = async (
-  courseId: string,
-  quizId: string
-): Promise<void> => {
-  try {
-    const submissions = await canvasService.getQuizSubmissions(courseId, quizId);
-
-    console.log(`🔍 Polling quiz ${quizId}: ${submissions.length} submissions encontrados`);
-
-    for (const submission of submissions) {
-      await processSubmission(submission, courseId, quizId);
-    }
-  } catch (error) {
-    console.error(`❌ Error en polling quiz ${quizId}:`, error);
-  }
-};
-
-/**
- * Obtener resultados de un estudiante
- */
-export const getStudentResults = async (
-  studentId: string,
-  courseId?: string
-): Promise<any[]> => {
-  const filter: any = { studentId };
-  
-  if (courseId) {
-    filter.courseId = courseId;
-  }
-
-  const results = await QuizResult.find(filter)
-    .sort({ submittedAt: -1 })
-    .lean();
-
-  return results;
 };
 
 /**
  * Obtener estadísticas de un estudiante
  */
-export const getStudentStats = async (studentId: string) => {
-  const results = await QuizResult.find({ studentId }).lean();
+export const getStudentStats = async (userId: string) => {
+  try {
+    const results = await QuizResult.find({ userId });
 
-  const totalQuizzes = results.length;
-  const completados = results.filter(r => r.percentageScore >= 60).length;
-  const promedio = results.length > 0
-    ? results.reduce((sum, r) => sum + r.percentageScore, 0) / results.length
-    : 0;
+    const completados = results.length;
+    const totalPoints = results.reduce((sum, r) => sum + r.score, 0);
+    const totalPossible = results.reduce((sum, r) => sum + r.possiblePoints, 0);
+    const promedio = totalPossible > 0 ? (totalPoints / totalPossible) * 100 : 0;
 
-  return {
-    studentId,
-    studentName: results[0]?.studentName || '',
-    completados,
-    enProgreso: 0,
-    promedio,
-    totalQuizzes
-  };
+    return {
+      completados,
+      enProgreso: 0, // Por implementar
+      totalQuizzes: completados, // Por implementar con Canvas API
+      promedio
+    };
+  } catch (error) {
+    console.error('❌ Error obteniendo estadísticas:', error);
+    return {
+      completados: 0,
+      enProgreso: 0,
+      totalQuizzes: 0,
+      promedio: 0
+    };
+  }
 };
