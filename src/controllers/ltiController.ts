@@ -19,7 +19,8 @@ export const handleLaunch = async (req: Request, res: Response): Promise<void> =
       roles,
       context_id,
       custom_canvas_user_id,
-      custom_canvas_course_id
+      custom_canvas_course_id,
+      resource_link_id
     } = req.body;
 
     console.log('📝 Procesando LTI Launch...');
@@ -36,16 +37,19 @@ export const handleLaunch = async (req: Request, res: Response): Promise<void> =
     const canvasUserId = custom_canvas_user_id || user_id;
 
     // Generar token de sesión
-    const token = crypto.randomBytes(32).toString('hex');
-    console.log('🔑 Token generado:', token.substring(0, 10) + '...');
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    console.log('🔑 Token generado:', sessionToken.substring(0, 10) + '...');
 
-    // Crear sesión en BD
+    // Crear sesión en BD con los campos correctos del modelo
     const session = new LTISession({
-      token,
+      sessionToken,
       userId: canvasUserId, // Usar Canvas user_id
       userName: lis_person_name_full || 'Usuario',
+      contextId: context_id,
       courseId: custom_canvas_course_id || context_id,
+      resourceLinkId: resource_link_id || 'default',
       role,
+      status: 'active',
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 horas
     });
 
@@ -68,7 +72,7 @@ export const handleLaunch = async (req: Request, res: Response): Promise<void> =
         '</head>',
         `
         <script>
-          window.__SESSION_TOKEN__ = "${token}";
+          window.__SESSION_TOKEN__ = "${sessionToken}";
           window.__USER_DATA__ = {
             userId: "${canvasUserId}",
             userName: "${lis_person_name_full || 'Usuario'}",
@@ -93,7 +97,7 @@ export const handleLaunch = async (req: Request, res: Response): Promise<void> =
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quiz Monitor</title>
   <script>
-    window.__SESSION_TOKEN__ = "${token}";
+    window.__SESSION_TOKEN__ = "${sessionToken}";
     window.__USER_DATA__ = {
       userId: "${canvasUserId}",
       userName: "${lis_person_name_full || 'Usuario'}",
@@ -141,8 +145,8 @@ export const validateToken = async (req: Request, res: Response): Promise<void> 
 
     console.log('🔍 Validando token:', token.substring(0, 10) + '...');
 
-    // Buscar sesión
-    const session = await LTISession.findOne({ token });
+    // Buscar sesión por sessionToken
+    const session = await LTISession.findOne({ sessionToken: token });
 
     if (!session) {
       console.log('❌ Token no encontrado');
