@@ -1,10 +1,6 @@
-// ============================================================================
-// CONTROLADOR LTI - QUIZ MONITOR
-// ============================================================================
-
 import { Request, Response } from 'express';
 import LTISession from '../models/LTISession';
-import { LTILaunchData, ApiResponse } from '../types';
+import { ApiResponse } from '../types';
 import crypto from 'crypto';
 
 /**
@@ -15,31 +11,35 @@ export const handleLaunch = async (
   res: Response
 ): Promise<void> => {
   try {
-    const launchData: LTILaunchData = req.body;
+    const launchData: any = req.body;
+
+    console.log('📝 Procesando LTI Launch...');
+    console.log('👤 Usuario:', launchData.lis_person_name_full);
+    console.log('📚 Curso:', launchData.custom_canvas_course_id);
 
     // Extraer datos del launch
-    const {
-      user_id,
-      lis_person_name_full,
-      context_id,
-      resource_link_id,
-      roles,
-      custom_canvas_course_id
-    } = launchData;
+    const userId = launchData.user_id || launchData.custom_canvas_user_id;
+    const userName = launchData.lis_person_name_full || 'Usuario';
+    const courseId = launchData.custom_canvas_course_id || launchData.context_id;
+    const contextId = launchData.context_id;
+    const resourceLinkId = launchData.resource_link_id;
+    const roles = launchData.roles || '';
 
     // Determinar rol
     const role = roles.includes('Instructor') ? 'Instructor' : 'Learner';
 
-    // Generar token de sesión
+    // Generar token de sesión seguro
     const sessionToken = crypto.randomBytes(32).toString('hex');
+
+    console.log('🔑 Token generado:', sessionToken.substring(0, 10) + '...');
 
     // Crear sesión LTI
     const session = new LTISession({
-      userId: user_id,
-      userName: lis_person_name_full,
-      courseId: custom_canvas_course_id,
-      contextId: context_id,
-      resourceLinkId: resource_link_id,
+      userId,
+      userName,
+      courseId,
+      contextId,
+      resourceLinkId,
       role,
       sessionToken,
       status: 'active',
@@ -48,15 +48,27 @@ export const handleLaunch = async (
 
     await session.save();
 
-    console.log(`✅ Sesión LTI creada para usuario: ${lis_person_name_full}`);
+    console.log('✅ Sesión LTI creada para usuario:', userName);
 
-    // Redirigir al frontend con token
+    // Construir URL de redirect al frontend
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    res.redirect(`${frontendUrl}?token=${sessionToken}`);
+    const redirectUrl = `${frontendUrl}?token=${sessionToken}`;
+
+    console.log('🔀 Redirigiendo a:', redirectUrl);
+
+    // Redirigir al frontend
+    res.redirect(redirectUrl);
 
   } catch (error) {
     console.error('❌ Error en LTI launch:', error);
-    res.status(500).send('Error procesando LTI launch');
+    res.status(500).send(`
+      <html>
+        <body>
+          <h1>Error procesando LTI launch</h1>
+          <p>${error instanceof Error ? error.message : 'Error desconocido'}</p>
+        </body>
+      </html>
+    `);
   }
 };
 
@@ -69,6 +81,8 @@ export const validateToken = async (
 ): Promise<void> => {
   try {
     const { token } = req.body;
+
+    console.log('🔍 Validando token:', token?.substring(0, 10) + '...');
 
     if (!token) {
       res.status(400).json({
@@ -85,12 +99,15 @@ export const validateToken = async (
     });
 
     if (!session) {
+      console.error('❌ Token no encontrado o expirado');
       res.status(401).json({
         ok: false,
         error: 'Token inválido o expirado'
       } as ApiResponse);
       return;
     }
+
+    console.log('✅ Token válido para usuario:', session.userName);
 
     res.json({
       ok: true,
