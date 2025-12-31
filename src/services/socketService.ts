@@ -1,77 +1,78 @@
 // ============================================================================
-// SERVICIO SOCKET.IO - QUIZ MONITOR
+// SOCKET.IO SERVICE - QUIZ MONITOR
 // ============================================================================
 
-import { Server as SocketServer, Socket } from 'socket.io';
-import { Server as HTTPServer } from 'http';
-import { QuizResultEvent } from '../types';
+import { Server as SocketIOServer, Socket } from 'socket.io';
 
-let io: SocketServer | null = null;
+let io: SocketIOServer | null = null;
 
 /**
- * Inicializar Socket.io
+ * Inicializar Socket.io - SINGLETON
  */
-export const initializeSocket = (server: HTTPServer): SocketServer => {
-  io = new SocketServer(server, {
-    cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-      credentials: true,
-      methods: ['GET', 'POST']
-    }
-  });
+export const initializeSocket = (socketServer: SocketIOServer): void => {
+  // Evitar inicializar dos veces
+  if (io) {
+    console.log('⚠️  Socket.io ya inicializado, omitiendo...');
+    return;
+  }
+
+  io = socketServer;
 
   io.on('connection', (socket: Socket) => {
-    console.log(`🔌 Socket conectado: ${socket.id}`);
+    console.log('🔌 Socket conectado:', socket.id);
 
-    // Autenticación del estudiante
-    socket.on('authenticate', (studentId: string) => {
-      if (!studentId || typeof studentId !== 'string') {
-        console.warn(`⚠️  Intento de autenticación inválido: ${socket.id}`);
-        socket.disconnect();
-        return;
-      }
-
-      socket.data.studentId = studentId;
-      socket.join(`student-${studentId}`);
+    // Autenticar estudiante
+    socket.on('authenticate', (data: { studentId: string }) => {
+      const { studentId } = data;
+      
+      // Unirse a sala específica del estudiante
+      socket.join(`student:${studentId}`);
       console.log(`✅ Estudiante autenticado: ${studentId}`);
-
+      
       // Confirmar autenticación
       socket.emit('authenticated', { studentId });
     });
 
     socket.on('disconnect', () => {
-      console.log(`🔌 Socket desconectado: ${socket.id}`);
-    });
-
-    socket.on('error', (error) => {
-      console.error(`❌ Error en socket ${socket.id}:`, error);
+      console.log('🔌 Socket desconectado:', socket.id);
     });
   });
 
   console.log('✅ Socket.io inicializado');
-  return io;
-};
-
-/**
- * Emitir resultado de quiz a un estudiante específico
- */
-export const emitQuizResult = (studentId: string, result: QuizResultEvent): void => {
-  if (!io) {
-    console.error('❌ Socket.io no inicializado');
-    return;
-  }
-
-  const room = `student-${studentId}`;
-  io.to(room).emit('quiz-result-ready', result);
-
-  console.log(`📤 Resultado emitido a estudiante ${studentId}:`, {
-    quizTitle: result.quizTitle,
-    score: result.score,
-    percentage: result.percentageScore.toFixed(1)
-  });
 };
 
 /**
  * Obtener instancia de Socket.io
  */
-export const getSocketInstance = (): SocketServer | null => io;
+export const getIO = (): SocketIOServer => {
+  if (!io) {
+    throw new Error('Socket.io no ha sido inicializado');
+  }
+  return io;
+};
+
+/**
+ * Emitir evento a estudiante específico
+ */
+export const emitToStudent = (studentId: string, event: string, data: any): void => {
+  if (!io) {
+    console.error('❌ Socket.io no inicializado');
+    return;
+  }
+
+  io.to(`student:${studentId}`).emit(event, data);
+  console.log(`📤 Evento emitido a estudiante ${studentId}:`, event);
+};
+
+/**
+ * Emitir evento a todos los clientes
+ */
+export const emitToAll = (event: string, data: any): void => {
+  if (!io) {
+    console.error('❌ Socket.io no inicializado');
+    return;
+  }
+
+  io.emit(event, data);
+  console.log(`📤 Evento emitido a todos:`, event);
+};

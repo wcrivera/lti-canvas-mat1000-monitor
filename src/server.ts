@@ -36,7 +36,7 @@ const io = new SocketIOServer(server, {
   }
 });
 
-initializeSocket(server);
+initializeSocket(io);
 
 // ============================================================================
 // MIDDLEWARES GLOBALES
