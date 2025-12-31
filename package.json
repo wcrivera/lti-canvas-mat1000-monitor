@@ -14,27 +14,34 @@
     "npm": ">=8.0.0"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "mongoose": "^8.0.3",
+    "axios": "^1.6.5",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "ims-lti": "^3.0.2",
-    "axios": "^1.6.5",
-    "socket.io": "^4.6.1",
-    "helmet": "^7.1.0",
+    "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
-    "morgan": "^1.10.0"
+    "helmet": "^7.1.0",
+    "ims-lti": "^3.0.2",
+    "mongoose": "^8.0.3",
+    "morgan": "^1.10.0",
+    "oauth-signature": "^1.5.0",
+    "socket.io": "^4.6.1"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
     "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.10.6",
     "nodemon": "^3.0.2",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   },
-  "keywords": ["lti", "canvas", "quiz", "monitor", "real-time"],
+  "keywords": [
+    "lti",
+    "canvas",
+    "quiz",
+    "monitor",
+    "real-time"
+  ],
   "author": "Wolfgang Rivera",
   "license": "MIT"
 }

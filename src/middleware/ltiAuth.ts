@@ -1,7 +1,35 @@
 import { Request, Response, NextFunction } from 'express';
+import * as crypto from 'crypto';
 
-// @ts-ignore
-import { Provider } from 'ims-lti';
+/**
+ * Generar firma OAuth 1.0 manualmente
+ */
+function generateSignature(
+  method: string,
+  url: string,
+  params: Record<string, string>,
+  consumerSecret: string
+): string {
+  // Ordenar parámetros
+  const sortedParams = Object.keys(params)
+    .sort()
+    .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+    .join('&');
+
+  // Base string
+  const baseString = [
+    method.toUpperCase(),
+    encodeURIComponent(url),
+    encodeURIComponent(sortedParams)
+  ].join('&');
+
+  // Firma HMAC-SHA1
+  const key = `${encodeURIComponent(consumerSecret)}&`;
+  const hmac = crypto.createHmac('sha1', key);
+  hmac.update(baseString);
+  
+  return hmac.digest('base64');
+}
 
 export const validateLTILaunch = (
   req: Request,
@@ -12,43 +40,66 @@ export const validateLTILaunch = (
   const consumerSecret = process.env.LTI_CONSUMER_SECRET;
 
   console.log('🔍 LTI Launch recibido');
-  
+
   if (!consumerKey || !consumerSecret) {
     console.error('❌ LTI no configurado');
     res.status(500).json({ ok: false, error: 'LTI no configurado' });
     return;
   }
 
-  // IMPORTANTE: Forzar HTTPS para Heroku
-  // Heroku usa proxy y Canvas espera HTTPS
-  const originalUrl = req.originalUrl || req.url;
+  // Verificar consumer key
+  if (req.body.oauth_consumer_key !== consumerKey) {
+    console.error('❌ Consumer key no coincide');
+    res.status(401).json({ ok: false, error: 'Consumer key inválido' });
+    return;
+  }
+
+  // Construir URL completa
   const protocol = req.headers['x-forwarded-proto'] || 'https';
   const host = req.headers['host'];
-  const fullUrl = `${protocol}://${host}${originalUrl}`;
+  const path = req.originalUrl || req.url;
+  const fullUrl = `${protocol}://${host}${path}`;
 
-  console.log('📍 URL completa:', fullUrl);
-  console.log('📍 Protocol:', protocol);
+  console.log('📍 URL para validación:', fullUrl);
+  console.log('📍 Consumer Key:', req.body.oauth_consumer_key);
 
-  // @ts-ignore
-  const provider = new Provider(consumerKey, consumerSecret);
+  // Extraer firma enviada por Canvas
+  const receivedSignature = req.body.oauth_signature;
+  
+  if (!receivedSignature) {
+    console.error('❌ No se recibió oauth_signature');
+    res.status(401).json({ ok: false, error: 'Firma OAuth faltante' });
+    return;
+  }
 
-  // Configurar provider para usar URL correcta
-  (provider as any).body = req.body;
-  (provider as any).protocol = protocol;
-  (provider as any).hostname = host;
-  (provider as any).path = originalUrl;
-
-  // @ts-ignore
-  provider.valid_request(req, fullUrl, (err, isValid) => {
-    if (err || !isValid) {
-      console.error('❌ LTI launch inválido:', err?.message || 'Invalid');
-      res.status(401).json({ ok: false, error: 'Launch LTI inválido' });
-      return;
+  // Crear copia de parámetros sin la firma
+  const params: Record<string, string> = {};
+  Object.keys(req.body).forEach(key => {
+    if (key !== 'oauth_signature') {
+      params[key] = req.body[key];
     }
-
-    console.log('✅ LTI launch válido');
-    next();
   });
+
+  // Generar firma esperada
+  const expectedSignature = generateSignature(
+    'POST',
+    fullUrl,
+    params,
+    consumerSecret
+  );
+
+  console.log('🔐 Firma recibida:', receivedSignature.substring(0, 20) + '...');
+  console.log('🔐 Firma esperada:', expectedSignature.substring(0, 20) + '...');
+
+  // Comparar firmas
+  if (receivedSignature !== expectedSignature) {
+    console.error('❌ Firmas no coinciden');
+    res.status(401).json({ ok: false, error: 'Firma OAuth inválida' });
+    return;
+  }
+
+  console.log('✅ LTI launch válido - Firma verificada');
+  next();
 };
 
 export const validateSession = async (
