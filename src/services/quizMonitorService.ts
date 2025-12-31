@@ -66,7 +66,13 @@ export const processQuizSubmission = async (
 
     console.log(`📤 Resultado emitido a estudiante ${submission.user_id}`);
 
-  } catch (error) {
+  } catch (error: any) {
+    // Si es error de duplicado (E11000), ignorar silenciosamente
+    if (error.code === 11000) {
+      console.log(`⚠️  Submission duplicada ignorada: Usuario ${submission.user_id} - Intento ${submission.attempt}`);
+      return;
+    }
+    
     console.error('❌ Error procesando submission:', error);
     throw error;
   }
