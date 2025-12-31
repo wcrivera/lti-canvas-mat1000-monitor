@@ -11,45 +11,37 @@ export const validateLTILaunch = (
   const consumerKey = process.env.LTI_CONSUMER_KEY;
   const consumerSecret = process.env.LTI_CONSUMER_SECRET;
 
-  // LOG DETALLADO
-  console.log('═══════════════════════════════════════');
-  console.log('🔍 LTI LAUNCH DEBUG');
-  console.log('═══════════════════════════════════════');
-  console.log('Consumer Key ESPERADO:', consumerKey);
-  console.log('Consumer Key RECIBIDO:', req.body.oauth_consumer_key);
-  console.log('Secret configurado:', consumerSecret ? 'SÍ (oculto)' : 'NO');
-  console.log('URL:', req.originalUrl);
-  console.log('Method:', req.method);
-  console.log('Body keys:', Object.keys(req.body));
-  console.log('═══════════════════════════════════════');
-
+  console.log('🔍 LTI Launch recibido');
+  
   if (!consumerKey || !consumerSecret) {
-    console.error('❌ LTI_CONSUMER_KEY o LTI_CONSUMER_SECRET no configurados');
+    console.error('❌ LTI no configurado');
     res.status(500).json({ ok: false, error: 'LTI no configurado' });
     return;
   }
 
-  // Verificación extra antes de validar
-  if (req.body.oauth_consumer_key !== consumerKey) {
-    console.error('❌ CONSUMER KEY NO COINCIDE:');
-    console.error('   Esperado:', JSON.stringify(consumerKey));
-    console.error('   Recibido:', JSON.stringify(req.body.oauth_consumer_key));
-    console.error('   ¿Son idénticos?', req.body.oauth_consumer_key === consumerKey);
-    res.status(401).json({ ok: false, error: 'Consumer Key no coincide' });
-    return;
-  }
+  // IMPORTANTE: Forzar HTTPS para Heroku
+  // Heroku usa proxy y Canvas espera HTTPS
+  const originalUrl = req.originalUrl || req.url;
+  const protocol = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers['host'];
+  const fullUrl = `${protocol}://${host}${originalUrl}`;
+
+  console.log('📍 URL completa:', fullUrl);
+  console.log('📍 Protocol:', protocol);
 
   // @ts-ignore
   const provider = new Provider(consumerKey, consumerSecret);
 
+  // Configurar provider para usar URL correcta
+  (provider as any).body = req.body;
+  (provider as any).protocol = protocol;
+  (provider as any).hostname = host;
+  (provider as any).path = originalUrl;
+
   // @ts-ignore
-  provider.valid_request(req, (err, isValid) => {
+  provider.valid_request(req, fullUrl, (err, isValid) => {
     if (err || !isValid) {
-      console.error('❌ LTI launch inválido:', err);
-      if (err) {
-        console.error('   Tipo de error:', err.name);
-        console.error('   Mensaje:', err.message);
-      }
+      console.error('❌ LTI launch inválido:', err?.message || 'Invalid');
       res.status(401).json({ ok: false, error: 'Launch LTI inválido' });
       return;
     }
