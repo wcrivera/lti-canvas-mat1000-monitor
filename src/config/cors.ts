@@ -1,23 +1,32 @@
-// ============================================================================
-// CONFIGURACIÓN CORS - QUIZ MONITOR
-// ============================================================================
-
 import { CorsOptions } from 'cors';
 
 const ALLOWED_ORIGINS = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
   'http://localhost:3000',
-  'https://canvas.instructure.com'
+  'https://canvas.instructure.com',
+  'https://cursos.canvas.uc.cl',
+  // Permitir cualquier subdominio de Vercel
+  /vercel\.app$/,
+  /\.vercel\.app$/
 ];
 
 export const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
-    // Permitir requests sin origin (como mobile apps o curl)
+    // Permitir requests sin origin (mobile apps, curl, etc.)
     if (!origin) {
       return callback(null, true);
     }
 
-    if (ALLOWED_ORIGINS.includes(origin) || origin.includes('canvas')) {
+    // Verificar si está en la lista de permitidos
+    const isAllowed = ALLOWED_ORIGINS.some(allowed => {
+      if (typeof allowed === 'string') {
+        return origin === allowed || origin.includes(allowed);
+      }
+      // RegExp para dominios de Vercel
+      return allowed.test(origin);
+    });
+
+    if (isAllowed || origin.includes('canvas') || origin.includes('vercel')) {
       callback(null, true);
     } else {
       console.warn(`⚠️  Origen no permitido: ${origin}`);

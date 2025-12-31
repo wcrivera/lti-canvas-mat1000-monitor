@@ -2,7 +2,6 @@
 // SERVIDOR PRINCIPAL - QUIZ MONITOR
 // ============================================================================
 
-// ⚠️ IMPORTANTE: dotenv DEBE ser lo primero
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -13,41 +12,26 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 
-// Configuración
 import { connectDatabase } from './config/database';
 import { corsOptions } from './config/cors';
-
-// Rutas
 import routes from './routes';
-
-// Middleware
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-
-// Servicios
 import { initializeSocket } from './services/socketService';
 import { pollQuizSubmissions } from './services/quizMonitorService';
 import { canvasService } from './services/canvasService';
 
-// ============================================================================
-// CONFIGURACIÓN EXPRESS
-// ============================================================================
-
 const app: Application = express();
 const PORT = process.env.PORT || 3001;
 
-// Crear servidor HTTP para Socket.io
 const server = createServer(app);
 
-// ============================================================================
-// MIDDLEWARE GLOBAL
-// ============================================================================
-
+// Middleware
 app.use(helmet());
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
@@ -58,23 +42,14 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// ============================================================================
-// RUTAS
-// ============================================================================
-
+// Rutas
 app.use(routes);
 
-// ============================================================================
-// MANEJO DE ERRORES
-// ============================================================================
-
+// Manejo de errores
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// ============================================================================
-// INICIALIZACIÓN
-// ============================================================================
-
+// Inicialización
 const startServer = async (): Promise<void> => {
   try {
     await connectDatabase();
@@ -93,11 +68,9 @@ const startServer = async (): Promise<void> => {
         console.log('✅ Canvas API: Configurado');
       } else {
         console.log('⚠️  Canvas API: NO configurado');
-        console.log('💡 Verifica CANVAS_API_URL y CANVAS_ACCESS_TOKEN en .env');
       }
       
       console.log('═══════════════════════════════════════════════════════');
-      console.log('');
     });
 
     const pollingEnabled = process.env.ENABLE_POLLING === 'true';
@@ -106,9 +79,12 @@ const startServer = async (): Promise<void> => {
     if (pollingEnabled && canvasReady) {
       const pollInterval = parseInt(process.env.POLL_INTERVAL_SECONDS || '30') * 1000;
 
-      const MONITORED_QUIZZES = [
-        { courseId: '90302', quizId: '187627' },
-      ];
+      const MONITORED_QUIZZES = (process.env.MONITORED_QUIZZES || '').split(',')
+        .filter(q => q.trim())
+        .map(q => {
+          const [courseId, quizId] = q.split(':');
+          return { courseId, quizId };
+        });
 
       if (MONITORED_QUIZZES.length === 0) {
         console.log('⚠️  Polling habilitado pero sin quizzes configurados');
